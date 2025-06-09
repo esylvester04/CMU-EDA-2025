@@ -1,0 +1,174 @@
+---
+title: "EDAProject"
+author: "J. Dante Maurice"
+output: html_document
+---
+
+
+
+```{r}
+library(tidyverse)
+wwc_shots <- read_csv("https://raw.githubusercontent.com/36-SURE/2025/main/data/wwc_shots.csv")
+```
+
+```{r}
+wwc_shots %>% group_by(shot.outcome.name) %>% count()
+wwc_shots %>% group_by(play_pattern.name) %>% count()
+wwc_shots %>% group_by(shot.technique.name) %>% count()
+```
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n()) %>% 
+  ggplot(aes(x=play_pattern.name, y=Shots))+
+  geom_col(aes(colour = Goal, fill=Goal), position="fill")
+```
+
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n()) %>% filter(avevelocity<=100) %>% 
+  ggplot(aes(x=avevelocity, y=DistToGoal)) +
+  geom_point(aes(color=Goal))
+```
+
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n()) %>% 
+  ggplot(aes(x=DefendersBehindBall))+
+  geom_bar(aes(colour = Goal, fill=Goal))
+```
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())  %>% 
+  ggplot(aes(x=AttackersBehindBall, y=DefendersBehindBall)) +
+  geom_point(aes(color=Goal, shape=Goal), alpha=0.5, size=5) 
+```
+
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n()) %>% filter(minute<=90) %>% 
+  ggplot(aes(x=minute))+
+  geom_bar(aes(colour = Goal, fill=Goal))
+```
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())  %>% 
+  ggplot(aes(x=distance.ToD1.360, y=distance.ToD2.360)) +
+  geom_point(aes(color=Goal, shape=Goal), alpha=0.5, size=5) 
+```
+
+
+```{r}
+View(wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n()) %>% mutate(team_name=possession_team.name[[1:1]]))
+
+```
+
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())  %>% 
+  filter(location.x>=90) %>% 
+  ggplot(aes(y=location.x, x=location.y)) +
+  geom_point(aes(color=Goal, shape=Goal), alpha=0.5, size=3) 
+```
+
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())  %>% 
+  filter(shot.end_location.z<=3, shot.end_location.y<=45, shot.end_location.y>=36) %>% 
+  ggplot(aes(y=shot.end_location.z, x=shot.end_location.y)) +
+  geom_point(aes(color=Goal, shape=Goal), alpha=0.5, size=3) 
+```
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())  %>% 
+  filter(shot.end_location.z<=3, shot.end_location.y<=45, shot.end_location.y>=36) %>% 
+  filter(player.name.GK %in% goalies, shot.outcome.name%in% c("Saved", "Goal")) %>% 
+  ggplot(aes(y=shot.end_location.z, x=shot.end_location.y)) +
+  geom_point(aes(color=Goal, shape=Goal), alpha=0.5, size=3) +
+  facet_wrap(~player.name.GK)
+```
+
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())  %>% 
+  filter(shot.end_location.z<=3, shot.end_location.y<=45, shot.end_location.y>=36) %>% 
+  filter(player.name.GK %in% goalies, shot.outcome.name%in% c("Saved", "Goal")) %>% 
+  ggplot(aes(y=shot.end_location.z, x=shot.end_location.y)) +
+  geom_point(aes(color=Goal, shape=Goal), alpha=0.5, size=3) 
+```
+
+
+
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n()) %>%
+  ggplot(aes(x=DefArea))+
+  geom_histogram(aes(colour = Goal, fill=Goal), position = "fill")
+```
+
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n()) %>%
+  ggplot(aes(x=DefendersInCone))+
+  geom_bar(aes(colour = Goal, fill=Goal))
+```
+
+
+```{r}
+wwc_shots %>% count(shot.outcome.name)
+```
+
+```{r}
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n()) %>%
+  ggplot(aes(x=DefendersInCone))+
+  geom_bar(aes(colour = shot.outcome.name, fill=shot.outcome.name), position='fill')
+```
+
+
+```{r}
+goalies=wwc_shots %>% count(player.name.GK) %>% filter(n>=25)
+goalies=goalies$player.name.GK[1:length(goalies$player.name.GK)]
+
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no')) %>%
+  filter(player.name.GK %in% goalies) %>% 
+  ggplot(aes(x=player.name.GK))+
+  geom_bar(aes(colour = Goal, fill=Goal))
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no')) %>% filter(shot.outcome.name!="Goal") %>% 
+  filter(player.name.GK %in% goalies) %>% 
+  ggplot(aes(x=player.name.GK))+
+  geom_bar(aes(colour = shot.outcome.name, fill=shot.outcome.name))
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no')) %>% filter(shot.outcome.name!="Goal") %>% 
+  filter(player.name.GK %in% goalies) %>% 
+  ggplot(aes(x=player.name.GK))+
+  geom_bar(aes(colour = shot.outcome.name, fill=shot.outcome.name), position="fill")
+```
+
+
+```{r}
+library(dplyr)
+
+wwc_shots %>%
+  mutate(Goal = ifelse(shot.outcome.name == "Goal", 'yes', 'no')) %>%
+  filter(shot.outcome.name != "Goal") %>%
+  filter(player.name.GK %in% goalies) %>%
+  mutate(last_name = sapply(strsplit(player.name.GK, " "), function(x) tail(x, 1))) %>%
+   ggplot(aes(x=last_name))+
+  geom_bar(aes(colour = shot.outcome.name, fill=shot.outcome.name), position="fill")
+  
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
