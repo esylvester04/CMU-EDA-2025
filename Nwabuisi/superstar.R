@@ -1,5 +1,3 @@
-# superstar_paradox.R
-
 library(tidyverse)
 library(ggrepel)
 library(viridis)
@@ -157,7 +155,7 @@ ggplot(comparison_df, aes(clutch_score, post_score, label = player.name)) +
   scale_y_continuous(labels = percent_format(1), limits = c(0, 1)) +
   labs(
     title    = "Clutch Score vs. Post-WWC Performance",
-    subtitle = "Do clutchiest players sustain form after the tournament?",
+    subtitle = "Do clutch players sustain form after the tournament?",
     x        = "Clutch Score",
     y        = "Post-WWC Performance"
   ) +
