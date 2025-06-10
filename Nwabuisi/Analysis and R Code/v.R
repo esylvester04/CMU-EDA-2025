@@ -1,10 +1,9 @@
 library(tidyverse)
 library(ggrepel)
-
-# 1) Read the dataset
+library(grid)
+library(gridridges)
 wwc_shots <- read_csv("https://raw.githubusercontent.com/36-SURE/2025/main/data/wwc_shots.csv")
 
-# 2) Compute per-team statistics
 team_stats <- wwc_shots %>%
   group_by(possession_team.name) %>%
   summarise(
@@ -14,7 +13,7 @@ team_stats <- wwc_shots %>%
     .groups     = "drop"
   )
 
-# 3) Create the scatter‐bubble plot
+# 3) Creating the scatter‐bubble plot
 ggplot(team_stats, aes(x = avg_dist, y = conv_rate, size = shot_count)) +
   # Trend line
   geom_smooth(method = "lm", se = FALSE, linetype = "dashed", color = "grey50") +
@@ -38,8 +37,6 @@ ggplot(team_stats, aes(x = avg_dist, y = conv_rate, size = shot_count)) +
     legend.position = "bottom",
     plot.title      = element_text(face = "bold")
   )
-
-# Install + load tidyverse if needed
 
 # 2) Filter to Open Play vs. Counter and bin possession duration
 wwc <- wwc_shots %>%
@@ -854,13 +851,10 @@ ggplot(profile, aes(x = cluster, y = conv_rate, fill = cluster)) +
   ) +
   theme_minimal(base_size = 14)
 # ─────────────────────────────────────────────────────────────────────────────
-# PCA & Unsupervised Learning on WWC Shot Data
+# Clustering/ PCA stuff
 # ─────────────────────────────────────────────────────────────────────────────
 
-library(factoextra)
 library(cluster)
-
-# 2) Read & prepare data for unsupervised learning
 
 
 # Select numerical features of interest (filter NAs)

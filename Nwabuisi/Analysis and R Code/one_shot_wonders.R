@@ -6,6 +6,9 @@ library(ggsoccer)
 library(gridExtra)
 library(viridis)
 
+if (!exists("wwc_shots")) {
+  wwc_shots <- read_csv("https://raw.githubusercontent.com/36-SURE/2025/main/data/wwc_shots.csv")
+}
 # 1) per-player counts
 player_stats <- wwc_shots %>%
   group_by(player.name) %>%
