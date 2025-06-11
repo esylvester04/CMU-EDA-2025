@@ -128,44 +128,9 @@ ggplot(player_clutch, aes(x = reorder(player.name, clutch_score), y = clutch_sco
     plot.title      = element_text(face = "bold")
   )
 
-# 5) Compare Clutch Score to Post‐WWC Performance & Efficiency vs. All Players
 
-# a) prepare post‐WWC performance ranking
-postwc_rank <- tibble(
-  player.name = c("Salma Paralluelo Avingono","Lindsey Michelle Horan","Alessia Russo",
-                  "Jill Roord","Thembi Kgatlana","Jennifer Hermoso Fuentes",
-                  "Lauren Hemp","Kadidiatou Diani","Lieke Martens","Mary Boio Fowler",
-                  "Alba María Redondo Ferrer","Caitlin Jade Foord",
-                  "Esther Gonzalez Rodríguez","Alexandra Morgan Carrasco",
-                  "Aitana Bonmati Conca"),
-  rank = 1:15
-) %>%
-  mutate(post_score = (16 - rank) / 15)
 
-# b) build comparison dataframe
-comparison_df <- player_clutch %>%
-  inner_join(postwc_rank, by = "player.name")
-
-# Plot 1: Clutch vs Post‐WWC performance
-ggplot(comparison_df, aes(clutch_score, post_score, label = player.name)) +
-  geom_point(color = "#2c7fb8", size = 4) +
-  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", color = "gray50") +
-  geom_text_repel(size = 3, box.padding = 0.3) +
-  scale_x_continuous(labels = percent_format(1), limits = c(0, 1)) +
-  scale_y_continuous(labels = percent_format(1), limits = c(0, 1)) +
-  labs(
-    title    = "Clutch Score vs. Post-WWC Performance",
-    subtitle = "Do clutch players sustain form after the tournament?",
-    x        = "Clutch Score",
-    y        = "Post-WWC Performance"
-  ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    plot.title    = element_text(face = "bold"),
-    plot.subtitle = element_text(size = 12)
-  )
-
-# Plot 2: Efficiency Comparison vs. All Players (improved)
+# Plot 2: Efficiency Comparison vs. All Players
 player_stats <- wwc %>%
   group_by(player.name) %>%
   summarise(
@@ -195,4 +160,62 @@ ggplot(player_stats, aes(category, conversion, fill = category)) +
   theme(
     legend.position = "none",
     plot.title      = element_text(face = "bold")
+  )
+# after computing player_clutch as before…
+
+# 6) hard-code post-WWC goals, assists & games
+post_wwc_stats <- tribble(
+  ~player.name,           ~goals_since_WWC, ~assists_since_WWC, ~games_since_WWC,
+  "Salma Paralluelo",            41,                12,                 49,
+  "Lindsey Michelle Horan",      27,                13,                 77,
+  "Alessia Russo",               35,                 5,                 59,
+  "Jill Roord",                  16,                 5,                 39,
+  "Thembi Kgatlana",              9,                 2,                 20,
+  "Aitana Bonmatí",              34,                31,                 75,
+  "Alex Morgan",                  5,                 5,                 33,
+  "Esther Gonzalez",             27,                 5,                 44,
+  "Alba Redondo",                38,                 5,                 50,
+  "Mary Fowler",                 12,                10,                 51,
+  "Lieke Martens",                3,                 3,                 11,
+  "Kadidiatou Diani",            33,                22,                 57,
+  "Lauren Hemp",                 15,                10,                 34,
+  "Jennifer Hermoso",             2,                 1,                  8
+)
+
+# 7) compute their goal+assist per game
+post_wwc_stats <- post_wwc_stats %>%
+  mutate(contrib_per_game = (goals_since_WWC + assists_since_WWC) / games_since_WWC)
+
+# 8) merge clutch scores with their post-WWC output
+comparison_df2 <- player_clutch %>%
+  inner_join(post_wwc_stats, by = "player.name")
+
+# …after computing player_clutch and your post_wwc_stats tribble…
+
+library(tidyr)  # for replace_na()
+
+# merge clutch scores with full post-WWC stats, keep everyone
+comparison_df2 <- player_clutch %>%
+  left_join(post_wwc_stats, by = "player.name") %>%
+  mutate(
+    contrib_per_game = (goals_since_WWC + assists_since_WWC) / games_since_WWC,
+    contrib_per_game = replace_na(contrib_per_game, 0)    # show missing as 0
+  )
+
+# plot Clutch Score vs. post-WWC contributions per game, all 15 players included
+ggplot(comparison_df2, aes(contrib_per_game, clutch_score, label = player.name)) +
+  geom_point(color = "#2c7fb8", size = 4) +
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", color = "gray50") +
+  geom_text_repel(size = 3, box.padding = 0.3) +
+  scale_x_continuous(name = "Goals+Assists per Game",
+                     limits = c(0, max(comparison_df2$contrib_per_game) * 1.1)) +
+  scale_y_continuous(name = "Clutch Score (0–1)", limits = c(0, 1)) +
+  labs(
+    title    = "Clutch Score vs. Post-WWC Contributions per Game",
+    subtitle = "All Top 15 Players (zero = no post-WWC data)"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title    = element_text(face = "bold"),
+    plot.subtitle = element_text(size = 12)
   )
