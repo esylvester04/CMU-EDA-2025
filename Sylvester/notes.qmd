@@ -16,7 +16,8 @@ wwc_shots <- read_csv("https://raw.githubusercontent.com/36-SURE/2025/main/data/
 View(wwc_shots)
 
 shots <- wwc_shots |>
-  mutate(goal = if_else(shot.outcome.name == "Goal", "Goal", "Miss")) |>
+  mutate(goal = if_else(shot.outcome.name == "Goal", "Goal", "Miss"), 
+         under_pressure = if_else(under_pressure == "TRUE", "Yes", "No")) |>
   clean_names()
 ```
 
@@ -57,9 +58,36 @@ shots_clean |>
               color = cluster)) +
    geom_point(size = 2) +
    ggthemes::scale_color_colorblind()
+
+
+shots_made_orig <- shots |> 
+  filter(goal == "Goal") |> 
+  select(location_x, location_y)
+
+shots_scaled <- as.data.frame(scale(shots_made_orig))
+
+first_kmeans <- kmeans(shots_scaled, 
+                       centers = 4, 
+                       nstart = 100)
+
+
+shots_made_orig$cluster <- factor(first_kmeans$cluster)
+
+
+ggplot(shots_made_orig, aes(x = location_x, y = location_y, color = cluster)) +
+  annotate_pitch(dimensions = pitch_statsbomb, fill = "#F8F8F8", colour = "#CCCCCC") +
+  geom_point(size = 3, alpha = 0.7) +
+  coord_fixed(xlim = c(60, 120), ylim = c(0, 80)) +  # right half of pitch
+  ggthemes::scale_color_colorblind() +
+  labs(title = "K-Means Clusters of Made Shots",
+       color = "Cluster") +
+  theme_void()
 ```
 
 
+```{r}
+
+```
 
 
 
