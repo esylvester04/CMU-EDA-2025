@@ -162,7 +162,183 @@ wwc_shots %>%
 
 
 
+# Filled with old code
+```{r}
+### Clustering testing ###
 
+k_means=wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n()) %>% 
+  filter(player.name.GK %in% goalies, shot.outcome.name%in% c("Goal")) %>% 
+  filter(avevelocity<=200) %>% 
+  select(shot.end_location.y, shot.end_location.z, DistToGoal, avevelocity, AngleToGoal, DistSGK, location.x,
+         location.y)
+
+std_k_means=k_means %>% scale()
+
+
+kmeans_many_features=std_k_means %>% kmeans(centers=4,nstart=100)
+
+library(factoextra)
+
+kmeans_many_features %>% 
+  fviz_cluster(data=std_k_means,
+               geom="point",
+               ellipse=FALSE)+
+  ggthemes::scale_color_colorblind()
+
+k_means_pca=prcomp(k_means, center=TRUE, scale.=TRUE)
+
+
+k_means_pca %>% fviz_pca_biplot(label='var', alpha.ind=0.25,
+                alpha.var=0.75,
+                labelsize=5,
+                col.var='darkblue',
+                repel=TRUE)
+
+
+
+
+
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Saved", "Goal")) %>% 
+  filter(avevelocity<=50) %>%
+  ggplot(aes(DistSGK, avevelocity, color=Goal)) + 
+  geom_point()+
+  ggthemes::scale_color_colorblind()
+
+
+
+
+
+
+
+
+test=wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Saved", "Goal")) %>% 
+  select(shot.end_location.y, shot.end_location.z)
+
+testk=test %>% mutate(shot.end_location.z=as.numeric(scale(shot.end_location.z)), 
+                      shot.end_location.y=as.numeric(scale(shot.end_location.y)))
+
+
+
+
+std_kmeans=testk %>% 
+  kmeans(algorithm = "Lloyd",
+         centers=4,
+         nstart=50)
+
+wwc_shots%>% 
+  mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Saved", "Goal")) %>% 
+  mutate(cluster=factor(std_kmeans$cluster)) %>% 
+  ggplot(aes(shot.end_location.y, shot.end_location.z, color=cluster)) + 
+  geom_point()+
+  ggthemes::scale_color_colorblind()+
+  facet_wrap(~shot.outcome.name)
+  
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Saved", "Goal")) %>% 
+  ggplot(aes(shot.end_location.y, shot.end_location.z, color=shot.body_part.name)) + 
+  geom_point()+
+  ggthemes::scale_color_colorblind()
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Saved", "Goal")) %>% 
+  ggplot(aes(shot.end_location.y, shot.end_location.z, color=shot.technique.name)) + 
+  geom_point()+
+  ggthemes::scale_color_colorblind()
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Saved", "Goal")) %>% 
+  ggplot(aes(shot.end_location.y, shot.end_location.z, color=position.name)) + 
+  geom_point()+
+  ggthemes::scale_color_colorblind()
+
+
+test=wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Goal")) %>% 
+  select(shot.end_location.y, shot.end_location.z)
+
+testk=test %>% mutate(shot.end_location.z=as.numeric(scale(shot.end_location.z)), 
+                      shot.end_location.y=as.numeric(scale(shot.end_location.y)))
+
+
+
+
+std_kmeans=testk %>% 
+  kmeans(algorithm = "Lloyd",
+         centers=4,
+         nstart=50)
+
+testk %>% mutate(cluster=factor(std_kmeans$cluster)) %>% 
+  ggplot(aes(shot.end_location.y, shot.end_location.z, color=cluster)) + 
+  geom_point()+
+  ggthemes::scale_color_colorblind()
+
+
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Goal")) %>% 
+  ggplot(aes(shot.end_location.y, shot.end_location.z, color=shot.body_part.name)) + 
+  geom_point()+
+  ggthemes::scale_color_colorblind()
+
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Goal")) %>% 
+  ggplot(aes(shot.end_location.y, shot.end_location.z, color=position.name)) + 
+  geom_point()+
+  ggthemes::scale_color_colorblind()
+
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Goal", "Saved"), player.name.GK %in% most_scored_on,
+         shot.end_location.y<=50) %>% 
+  ggplot(aes(shot.end_location.y, shot.end_location.z, color=player.name.GK)) + 
+  geom_point()+
+  ggthemes::scale_color_colorblind()+
+  facet_wrap(~shot.outcome.name)
+
+
+most_scored_on=wwc_shots %>% group_by(player.name.GK) %>% filter(shot.outcome.name=="Goal") %>% 
+  count() %>% arrange(desc(n)) %>% select(player.name.GK) %>% head(6)
+most_scored_on=most_scored_on[[1]]
+
+
+
+most_goals=wwc_shots %>% group_by(player.name) %>% filter(shot.outcome.name=="Goal") %>% 
+  count() %>% arrange(desc(n)) %>% select(player.name) %>% head(6)
+most_goals=most_goals[[1]]
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Goal", "Saved"), player.name %in% most_goals,
+         shot.end_location.y<=50) %>% 
+  ggplot(aes(shot.end_location.y, shot.end_location.z, color=player.name)) + 
+  geom_point()+
+  ggthemes::scale_color_colorblind()+
+  facet_wrap(~shot.outcome.name)
+
+
+most_goals_team=wwc_shots %>% group_by(possession_team.name) %>% filter(shot.outcome.name=="Goal") %>% 
+  count() %>% arrange(desc(n)) %>% select(possession_team.name) %>% head(3)
+most_goals_team=most_goals_team[[1]]
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Goal", "Saved"), possession_team.name %in% most_goals_team,
+         shot.end_location.y<=50) %>% 
+  ggplot(aes(shot.end_location.y, shot.end_location.z, color=possession_team.name)) + 
+  geom_point()+
+  ggthemes::scale_color_colorblind()+
+  facet_wrap(~shot.outcome.name)
+
+
+
+
+
+
+```
 
 
 

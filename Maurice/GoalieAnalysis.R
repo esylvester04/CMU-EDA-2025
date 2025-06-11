@@ -35,6 +35,61 @@ wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n
 wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())  %>% 
   filter(shot.end_location.z<=3, shot.end_location.y<=45, shot.end_location.y>=36) %>% 
   filter(player.name.GK %in% goalies, shot.outcome.name%in% c("Saved", "Goal")) %>% 
+  mutate(last_name = sapply(strsplit(player.name.GK, " "), function(x) tail(x, 1))) %>%
   ggplot(aes(y=shot.end_location.z, x=shot.end_location.y)) +
   geom_point(aes(color=Goal, shape=Goal), alpha=0.5, size=3) +
-  facet_wrap(~player.name.GK)
+  facet_wrap(~last_name)+
+  theme_minimal() +
+  labs(title="Goalie Performance", x="Shot Width", y="Shot Height")
+  
+
+library(ggpubr)
+library(jpeg)
+
+# Download and read sample image (readJPEG doesn't work with urls)
+
+#Can only open with a file called goal.jpeg
+# img <- readJPEG("goal.jpeg")
+# 
+# 
+# wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())  %>% 
+#   filter(shot.end_location.z<=3, shot.end_location.y<=45, shot.end_location.y>=36) %>% 
+#   filter(player.name.GK %in% goalies, shot.outcome.name%in% c("Saved", "Goal", "Post")) %>% 
+#   ggplot(aes(y=shot.end_location.z, x=shot.end_location.y)) +
+#   background_image(img) +
+#   geom_point(aes(color=Goal, shape=Goal), alpha=0.5, size=3)
+
+# Clustering analysis
+test=wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Saved", "Goal")) %>% 
+  filter(avevelocity<=50) %>% 
+  select(avevelocity, DistSGK)
+
+testk=test %>% mutate(DistSGK=as.numeric(scale(DistSGK)), avevolicity=as.numeric(scale(DistSGK)))
+
+
+
+
+std_kmeans=testk %>% 
+  kmeans(algorithm = "Lloyd",
+         centers=3,
+         nstart=50)
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Saved", "Goal")) %>% 
+  filter(avevelocity<=50) %>%
+  mutate(cluster=factor(std_kmeans$cluster)) %>% 
+  ggplot(aes(DistSGK, avevelocity, color=cluster)) + 
+  geom_point()+
+  ggthemes::scale_color_colorblind()+
+  facet_wrap(~shot.outcome.name)
+
+wwc_shots %>% mutate(Goal=ifelse(shot.outcome.name=="Goal", 'yes','no'), Shots=n())%>% 
+  filter(shot.outcome.name%in% c("Saved", "Goal")) %>% 
+  filter(avevelocity<=50) %>%
+  mutate(cluster=factor(std_kmeans$cluster)) %>% 
+  select(shot.outcome.name, cluster) %>% 
+  mutate(shot.outcome.name = ifelse(shot.outcome.name=="Goal", 1, 0)) %>% 
+  group_by(cluster) %>% summarise(goal_prop= sum(shot.outcome.name)/n())
+
+
