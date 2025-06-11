@@ -1,7 +1,7 @@
 library(tidyverse)
 library(dplyr)
 library(ggblend)
-library(ggsoccer)
+#library(ggsoccer)
 library(ggrepel)
 library(viridis)
 library(scales)
@@ -28,10 +28,15 @@ shots <- wwc_shots |>
 
 
 
+
+
 # Interactive version for Goalkeeper Performance on On-Target Shots:
+
 on_target <- shots |>
   filter(!(shot_outcome_name %in% c("Off T", "Wayward")),
-         !is.na(player_name_gk))
+         !is.na(player_name_gk)) |>
+  mutate(goal = if_else(shot_outcome_name == "Goal", "Goal", "Saved"))
+
 
 on_target_summary <- on_target |>
   filter(shot_outcome_name %in% c("Goal", "Saved", "Saved Off T")) |>
@@ -42,6 +47,16 @@ on_target_summary <- on_target |>
          prop = n / total) |>
   filter(total >= 10) |>
   ungroup()
+
+
+team_lookup <- on_target |>
+  group_by(player_name_gk) |>
+  summarize(possession_team_name = first(possession_team_name), .groups = "drop")
+
+# join teams info back in
+on_target_summary <- on_target_summary |>
+  left_join(team_lookup, by = "player_name_gk")
+
 
 # goalkeepers in order
 save_order <- on_target_summary |>
@@ -57,11 +72,13 @@ outcome_colors <- c(
   "Goal" = "firebrick"
 )
 
+
 g <- ggplot(on_target_summary,
             aes(x = factor(player_name_gk, levels = rev(save_order)),
                 y = prop,
                 fill = shot_outcome_name,
                 text = paste0("Goalkeeper: ", player_name_gk,
+                              "<br>Team: ", possession_team_name, 
                               "<br>Outcome: ", shot_outcome_name,
                               "<br>Proportion: ", scales::percent(prop, accuracy = 0.1)))) +
   geom_col() +
@@ -70,7 +87,7 @@ g <- ggplot(on_target_summary,
   scale_fill_manual(values = outcome_colors, drop = FALSE) +
   labs(
     title = "Goalkeeper Performance on On-Target Shots",
-    subtitle = "Hover for breakdown; ordered by total saved %",
+    subtitle = "Keepers who faced at least 10 shots on goal; ordered by total saved %",
     x = "Goalkeeper", y = "Proportion",
     fill = "Shot Outcome"
   ) +
@@ -78,7 +95,22 @@ g <- ggplot(on_target_summary,
 
 # making interactive
 # could potentially add team names or logos / pictures
-ggplotly(g, tooltip = "text")
+
+ggplotly(g, tooltip = "text") %>%
+  layout(
+    title = list(
+      text = paste0(
+        "Goalkeeper Performance on On-Target Shots",
+        "<br><sup>Keepers who faced at least 10 shots on goal; ordered by total saved %</sup>"
+      )
+    )
+  )
+
+#downloading the HTML:
+p <- ggplotly(g, tooltip = "text")
+htmlwidgets::saveWidget(p, "interactive_plot.html")
+
+
 
 
 
