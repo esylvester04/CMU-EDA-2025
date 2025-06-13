@@ -156,7 +156,7 @@ ggplot(df) +
 
 ## Beyond the Data
 
-- We hoped Clutch Score would reflect a player’s mental fortitude carrying beyond the World Cup.
+- I hoped Clutch Score would reflect a player’s mental fortitude carrying beyond the World Cup.
 - **Real-world challenges:**
   - Injuries sidelined some stars for entire seasons.
   - Personal life events (e.g., maternity leave) interrupted careers.
