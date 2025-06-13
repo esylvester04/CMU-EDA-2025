@@ -16,6 +16,14 @@ shots <- wwc_shots |>
          under_pressure = if_else(is.na(under_pressure), 0, 1))|> 
            janitor::clean_names()
 
+on_target <- shots |>
+  filter(!(shot_outcome_name %in% c("Off T", "Wayward")),
+         !is.na(player_name_gk)) |>
+  mutate(goal = if_else(shot_outcome_name == "Goal", "Goal", "Saved"))
+
+goals_under_pressure <- shots |>
+  filter(goal == "Goal", 
+         under_pressure == 1)
 
 
 # IDEAS:
@@ -27,11 +35,7 @@ shots <- wwc_shots |>
 # which goalies have the highest proportion of saved "on-target" shots?
 
 
-
-# Interactive version for Goalkeeper Performance on On-Target Shots:
-on_target <- shots |>
-  filter(!(shot_outcome_name %in% c("Off T", "Wayward")),
-         !is.na(player_name_gk))
+# Interactive plotly for Goalkeeper performance for on target shots:
 
 on_target_summary <- on_target |>
   filter(shot_outcome_name %in% c("Goal", "Saved", "Saved Off T")) |>
@@ -42,6 +46,17 @@ on_target_summary <- on_target |>
          prop = n / total) |>
   filter(total >= 10) |>
   ungroup()
+
+
+# 
+# team_lookup <- on_target |>
+#   group_by(player_name_gk) |>
+#   summarize(possession_team_name = first(possession_team_name), .groups = "drop")
+# 
+# # joining team names back in 
+# on_target_summary <- on_target_summary |>
+#   left_join(team_lookup, by = "player_name_gk")
+
 
 # goalkeepers in order
 save_order <- on_target_summary |>
@@ -57,6 +72,7 @@ outcome_colors <- c(
   "Goal" = "firebrick"
 )
 
+
 g <- ggplot(on_target_summary,
             aes(x = factor(player_name_gk, levels = rev(save_order)),
                 y = prop,
@@ -64,21 +80,58 @@ g <- ggplot(on_target_summary,
                 text = paste0("Goalkeeper: ", player_name_gk,
                               "<br>Outcome: ", shot_outcome_name,
                               "<br>Proportion: ", scales::percent(prop, accuracy = 0.1)))) +
-  geom_col() +
+  geom_col()  +
   coord_flip() +
   scale_y_continuous(labels = label_percent(accuracy = 1)) +
   scale_fill_manual(values = outcome_colors, drop = FALSE) +
   labs(
     title = "Goalkeeper Performance on On-Target Shots",
-    subtitle = "Hover for breakdown; ordered by total saved %",
+    subtitle = "Keepers who faced at least 10 shots on goal; ordered by total saved %",
     x = "Goalkeeper", y = "Proportion",
     fill = "Shot Outcome"
   ) +
   theme_minimal(base_size = 13)
 
+
 # making interactive
 # could potentially add team names or logos / pictures
-ggplotly(g, tooltip = "text")
+
+
+g <- g +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.background = element_rect(fill = "navy", color = NA),
+    panel.background = element_rect(fill = "navy", color = NA),
+    legend.background = element_rect(fill = "navy", color = NA),
+    legend.key = element_rect(fill = "navy", color = NA),
+    axis.text = element_text(color = "white"),
+    axis.title = element_text(color = "white"),
+    plot.title = element_text(color = "white", face = "bold"),
+    plot.subtitle = element_text(color = "lightgray"),
+    legend.text = element_text(color = "white"),
+    legend.title = element_text(color = "white")
+  )
+
+ggplotly(g, tooltip = "text") %>%
+  layout(
+    font = list(family = "Arial", size = 12),
+    title = list(
+      text = paste0(
+        "Save Rates for Goalkeepers Facing On-Target Shots 
+        <sup>Includes only goalkeepers with 10+ on-target shots faced</sup>"
+      ),
+      xanchor = "center",
+      x = 0.5
+    ),
+    legend = list(orientation = "h", x = 0.3, y = -0.15),
+    margin = list(l = 100, r = 20, b = 60, t = 80)
+  )
+
+# downloading the HTML:
+p <- ggplotly(g, tooltip = "text")
+htmlwidgets::saveWidget(p, "interactive.html")
+
+
 
 
 
@@ -106,7 +159,7 @@ goals_under_pressure <- shots |>
          under_pressure == 1)
 
 ggplot(goals_under_pressure, aes(x = location_x, y = location_y, 
-                                 color = play_pattern_name, 
+                                 color = position_name, 
                                  #size = avevelocity
                                  )) +
   annotate_pitch(dimensions = pitch_statsbomb, 
@@ -122,9 +175,53 @@ ggplot(goals_under_pressure, aes(x = location_x, y = location_y,
 
 
 
+#heatmap of under pressure shot locations 
+
+ggplot(shots, aes(x = location_x, 
+                                 y = location_y)) +
+  annotate_pitch(dimensions = pitch_statsbomb, 
+                 fill = "#F8F8F8", 
+                 colour = "#CCCCCC"
+                 ) +
+  geom_hex(binwidth = c(1,1)) +
+  labs(title = "Locations of 'under pressure' shots"
+       ) +
+  theme_void(base_size = 14) +
+  coord_fixed(xlim = c(60, 120), ylim = c(0, 80)) 
+
+
 
 
 # Some Clustering attempts 
+
+# hex bin clustering of under pressure shots
+hex_summary <- shots |>
+  filter(under_pressure == TRUE) |>
+  mutate(hex_x = floor(location_x),
+         hex_y = floor(location_y)) |>
+  group_by(hex_x, hex_y) |>
+  summarize(n_shots = n(), 
+            avg_distance = mean(dist_to_goal, na.rm = TRUE),
+            .groups = "drop")
+
+hex_scaled <- scale(hex_summary[, c("n_shots", "avg_distance")])
+hex_clusters <- kmeans(hex_scaled, centers = 3)
+hex_summary$cluster <- factor(hex_clusters$cluster)
+
+ggplot(hex_summary, aes(x = hex_x, y = hex_y, fill = cluster)) +
+  annotate_pitch(dimensions = pitch_statsbomb, fill = "#F8F8F8", colour = "#CCCCCC") +
+  geom_tile(color = "white", size = 0.1) +
+  coord_fixed(xlim = c(60, 120), ylim = c(0, 80)) +
+  ggthemes::scale_color_colorblind() +
+  labs(title = "Hex Bin Clustering of 'Under Pressure' Shots",
+       fill = "Cluster") +
+  theme_void()
+
+
+
+
+
+# More clustering
 
 cluster_data_small <- shots |>
   select(dist_to_goal, angle_to_goal, under_pressure) |>
@@ -145,16 +242,6 @@ factoextra::fviz_cluster(kmod_small, data = scaled_data_small,
              main = "K-Means Clustering with Fewer Variables")
 
 
-# Heat Map:
-shots |>
-  ggplot(aes(x = location_x, y = location_y)) +
-  stat_density_2d(aes(fill = ..level..), geom = "polygon", contour = TRUE) +
-  scale_fill_viridis_c() +
-  coord_fixed() +
-  labs(title = "Heatmap of Shot Locations") +
-  theme_minimal()
-
-
 
 # k-means clustering for all made shots 
 shots_made_orig <- shots |> 
@@ -164,7 +251,7 @@ shots_made_orig <- shots |>
 shots_scaled <- as.data.frame(scale(shots_made_orig))
 
 first_kmeans <- kmeans(shots_scaled, 
-                       centers = 4, 
+                       centers = 3, 
                        nstart = 100)
 
 
@@ -180,6 +267,23 @@ ggplot(shots_made_orig, aes(x = location_x, y = location_y,
   labs(title = "K-Means Clusters of Made Shots",
        color = "Cluster") +
   theme_void()
+
+centroids <- as.data.frame(first_kmeans$centers)
+centroids$cluster <- factor(1:3)
+
+ggplot(shots_made_orig, aes(x = location_x, y = location_y, color = cluster)) +
+  annotate_pitch(dimensions = pitch_statsbomb, fill = "#F8F8F8", colour = "#CCCCCC") +
+  geom_point(alpha = 0.7) +
+  geom_point(data = centroids, aes(x = location_x, y = location_y), 
+             color = "black", shape = 4, size = 5, stroke = 2) +
+  coord_fixed(xlim = c(60, 120), ylim = c(0, 80)) +  # right half of pitch
+  ggthemes::scale_color_colorblind() +
+  labs(title = "K-Means Clusters of Made Shots",
+       color = "Cluster") +
+  theme_void()
+
+
+
 
 
 
@@ -206,4 +310,16 @@ ggplot(shots_one_on_one, aes(x = location_x, y = location_y, color = cluster)) +
 
 
 
+
+
+
+ggplot(on_target, aes(x = location_x, y = location_y)) +
+  annotate_pitch(dimensions = pitch_statsbomb, fill = "#F8F8F8", colour = "#CCCCCC") +
+  geom_segment(aes(xend = shot_end_location_x, 
+                   yend = shot_end_location_y), 
+               arrow = arrow(length = unit(0.1, "inches")), 
+               alpha = 0.7, color = "darkred") +
+  coord_fixed(xlim = c(60, 120), ylim = c(0, 80)) +
+  labs(title = "Shot Directions (Start to End Location)") +
+  theme_void()
 
