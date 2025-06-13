@@ -16,6 +16,15 @@ shots <- wwc_shots |>
          under_pressure = if_else(is.na(under_pressure), 0, 1))|> 
            janitor::clean_names()
 
+shots <- shots |>
+  mutate(player_name_gk = case_when(
+    player_name_gk == "Olivia Alexandra Davies Isip McDaniel" ~ "Olivia McDaniel",
+    player_name_gk == "Yenith Elizabett Bailey de la Cruz" ~ "Yenith Bailey",
+    TRUE ~ player_name_gk
+  ))
+
+
+
 on_target <- shots |>
   filter(!(shot_outcome_name %in% c("Off T", "Wayward")),
          !is.na(player_name_gk)) |>
@@ -35,6 +44,7 @@ goals_under_pressure <- shots |>
 # which goalies have the highest proportion of saved "on-target" shots?
 
 
+
 # Interactive plotly for Goalkeeper performance for on target shots:
 
 on_target_summary <- on_target |>
@@ -44,18 +54,8 @@ on_target_summary <- on_target |>
   group_by(player_name_gk) |>
   mutate(total = sum(n),
          prop = n / total) |>
-  filter(total >= 10) |>
+  filter(total >= 12) |>
   ungroup()
-
-
-# 
-# team_lookup <- on_target |>
-#   group_by(player_name_gk) |>
-#   summarize(possession_team_name = first(possession_team_name), .groups = "drop")
-# 
-# # joining team names back in 
-# on_target_summary <- on_target_summary |>
-#   left_join(team_lookup, by = "player_name_gk")
 
 
 # goalkeepers in order
@@ -80,13 +80,13 @@ g <- ggplot(on_target_summary,
                 text = paste0("Goalkeeper: ", player_name_gk,
                               "<br>Outcome: ", shot_outcome_name,
                               "<br>Proportion: ", scales::percent(prop, accuracy = 0.1)))) +
-  geom_col()  +
+  geom_col(width = 0.6)  +
   coord_flip() +
   scale_y_continuous(labels = label_percent(accuracy = 1)) +
   scale_fill_manual(values = outcome_colors, drop = FALSE) +
   labs(
     title = "Goalkeeper Performance on On-Target Shots",
-    subtitle = "Keepers who faced at least 10 shots on goal; ordered by total saved %",
+    subtitle = "Keepers who faced at least 12 shots on goal; ordered by total saved %",
     x = "Goalkeeper", y = "Proportion",
     fill = "Shot Outcome"
   ) +
@@ -95,22 +95,6 @@ g <- ggplot(on_target_summary,
 
 # making interactive
 # could potentially add team names or logos / pictures
-
-
-g <- g +
-  theme_minimal(base_size = 13) +
-  theme(
-    plot.background = element_rect(fill = "navy", color = NA),
-    panel.background = element_rect(fill = "navy", color = NA),
-    legend.background = element_rect(fill = "navy", color = NA),
-    legend.key = element_rect(fill = "navy", color = NA),
-    axis.text = element_text(color = "white"),
-    axis.title = element_text(color = "white"),
-    plot.title = element_text(color = "white", face = "bold"),
-    plot.subtitle = element_text(color = "lightgray"),
-    legend.text = element_text(color = "white"),
-    legend.title = element_text(color = "white")
-  )
 
 ggplotly(g, tooltip = "text") %>%
   layout(
@@ -122,10 +106,10 @@ ggplotly(g, tooltip = "text") %>%
       ),
       xanchor = "center",
       x = 0.5
-    ),
-    legend = list(orientation = "h", x = 0.3, y = -0.15),
-    margin = list(l = 100, r = 20, b = 60, t = 80)
-  )
+    # ),
+    # legend = list(orientation = "h", x = 0.3, y = -0.15),
+    # margin = list(l = 100, r = 20, b = 60, t = 80)
+  ))
 
 # downloading the HTML:
 p <- ggplotly(g, tooltip = "text")
@@ -153,7 +137,61 @@ ggplot(shots, aes(x = location_x,
   labs(title = "Shot Locations on Attacking Half", color = "Outcome")
 
 
-# under pressure GOAL locations by play pattern 
+
+shots_in_box <- shots %>%
+  filter(location_x >= 102, location_x <= 120,
+         location_y >= 18, location_y <= 62)
+
+ggplot(shots_in_box, aes(x = location_x, 
+                         y = location_y, 
+                         color = goal)) +
+  annotate_pitch(dimensions = pitch_statsbomb, 
+                 fill = "#F8F8F8", colour = "#CCCCCC") +
+  geom_point(size = 3, alpha = 0.6) +
+  scale_color_manual(values = c("Goal" = "red", "Miss" = "gray70")) +
+  coord_fixed(xlim = c(100, 122), ylim = c(10, 70)) + 
+  facet_wrap(~ goal) +
+  theme_void() +
+  labs(title = "Shot Locations Inside the Box", color = "Outcome")
+
+
+
+# Heatmap of shot locations
+  
+ ggplot(shots, aes(x = location_x, y = location_y)) +
+     annotate_pitch(dimensions = pitch_statsbomb,
+                    fill = "#F8F8F8", colour = "#CCCCCC") +
+     geom_density_2d_filled(alpha = 0.8, contour_var = "ndensity") +
+     coord_fixed(xlim = c(80, 125), ylim = c(15, 65)) +
+     facet_wrap(~ goal) +
+     theme_void(base_size = 13) +
+     labs(title = "Shot Density Inside the Box", fill = "Density") +
+     scale_fill_viridis_d(option = "cividis", name = "Shot Density")
+ 
+ 
+ ggplot(shots, aes(x = location_x, y = location_y)) +
+   annotate_pitch(dimensions = pitch_statsbomb,
+                  fill = "#F8F8F8", colour = "#CCCCCC") +
+   geom_density_2d_filled(alpha = 0.8, contour_var = "ndensity") +
+   coord_fixed(xlim = c(80, 125), ylim = c(15, 65)) +
+   facet_wrap(~ goal) +
+   theme_void(base_size = 13) +
+   labs(
+     title = "Density of Shot Attempts by Outcome",
+     fill = "Shot Concentration"
+   ) +
+   theme(
+     plot.title = element_text(size = 20, face = "bold", hjust = 0.5)
+   ) +
+   scale_fill_viridis_d(option = "cividis", name = "Shot Concentration")
+ 
+   
+
+
+
+
+
+w# under pressure GOAL locations by play pattern 
 goals_under_pressure <- shots |>
   filter(goal == "Goal", 
          under_pressure == 1)
@@ -191,6 +229,16 @@ ggplot(shots, aes(x = location_x,
 
 
 
+ggplot(shots, aes(x = shot_end_location_x, 
+                  y = shot_end_location_y)) +
+  geom_rect(aes(xmin = 100, xmax = 120, ymin = 18, ymax = 62),
+            fill = NA, color = "black", size = 1) +
+  geom_hex(binwidth = c(1, 1)) +
+  labs(title = "Locations of Shot Ends Around Goal") +
+  theme_void(base_size = 14) +
+  coord_fixed()
+
+
 
 # Some Clustering attempts 
 
@@ -205,7 +253,7 @@ hex_summary <- shots |>
             .groups = "drop")
 
 hex_scaled <- scale(hex_summary[, c("n_shots", "avg_distance")])
-hex_clusters <- kmeans(hex_scaled, centers = 3)
+hex_clusters <- kmeans(hex_scaled, centers = 3, nstart = 25)
 hex_summary$cluster <- factor(hex_clusters$cluster)
 
 ggplot(hex_summary, aes(x = hex_x, y = hex_y, fill = cluster)) +
