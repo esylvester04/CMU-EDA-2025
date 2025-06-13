@@ -117,7 +117,7 @@ ggplot(player_clutch, aes(x = reorder(player.name, clutch_score), y = clutch_sco
   scale_fill_viridis_c(option = "plasma", name = "Clutch\nScore") +
   scale_y_continuous(labels = percent_format(1), limits = c(0, 1)) +
   labs(
-    title    = "Clutch Score of Top 15 Shooters",
+    title    = "Four Factor Clutch Score of Top 15 Shooters",
     subtitle = "Based on late-game, under pressure, one-on-one, and instant shots",
     x        = "Player",
     y        = "Clutch Score (0–1)"
@@ -219,3 +219,85 @@ ggplot(comparison_df2, aes(contrib_per_game, clutch_score, label = player.name))
     plot.title    = element_text(face = "bold"),
     plot.subtitle = element_text(size = 12)
   )
+
+# Compute and visualize 5-Factor Clutch Score
+library(tidyverse)
+library(scales)
+
+# Load and flag data
+wwc <- read_csv("https://raw.githubusercontent.com/36-SURE/2025/main/data/wwc_shots.csv") %>%
+  mutate(
+    late_game      = period == 2 & minute >= 80,
+    under_pressure = coalesce(under_pressure, FALSE),
+    instant        = duration < 0.3,
+    high_quality   = DistToGoal <= 12,
+    elim_stage     = period >= 3,
+    is_goal        = shot.outcome.name == "Goal"
+  )
+
+# Top 15 by goals
+top15 <- wwc %>%
+  count(player.name, wt = is_goal) %>%
+  rename(goals = n) %>%
+  arrange(desc(goals)) %>%
+  slice_head(n = 15)
+
+# Compute rates
+clutch5 <- wwc %>%
+  filter(player.name %in% top15$player.name) %>%
+  group_by(player.name) %>%
+  summarise(
+    late_rate    = mean(is_goal[late_game], na.rm=TRUE),
+    press_rate   = mean(is_goal[under_pressure], na.rm=TRUE),
+    inst_rate    = mean(is_goal[instant], na.rm=TRUE),
+    quality_rate = mean(is_goal[high_quality], na.rm=TRUE),
+    elim_rate    = mean(is_goal[elim_stage], na.rm=TRUE),
+    .groups      = "drop"
+  ) %>%
+  replace_na(list(late_rate=0, press_rate=0, inst_rate=0, quality_rate=0, elim_rate=0))
+
+# Safe normalize
+safe_normalize <- function(x) {
+  r <- range(x, na.rm=TRUE)
+  if (diff(r)==0) return(rep(0, length(x)))
+  (x - r[1]) / (r[2] - r[1])
+}
+
+# Normalize & composite
+clutch5 <- clutch5 %>%
+  mutate(
+    late_n    = safe_normalize(late_rate),
+    press_n   = safe_normalize(press_rate),
+    inst_n    = safe_normalize(inst_rate),
+    quality_n = safe_normalize(quality_rate),
+    elim_n    = safe_normalize(elim_rate),
+    clutch5   = rowMeans(across(late_n:elim_n))
+  )
+
+# Merge and plot
+df <- top15 %>%
+  left_join(clutch5 %>% select(player.name, clutch5), by="player.name") %>%
+  mutate(player.name = fct_reorder(player.name, goals))
+
+ggplot(df) +
+  geom_col(aes(player.name, goals / max(goals), fill="Goals"),
+           width=0.35, position=position_nudge(x=-0.17)) +
+  geom_col(aes(player.name, clutch5, fill="Clutch Score"),
+           width=0.35, position=position_nudge(x=+0.17)) +
+  geom_text(aes(player.name, goals/max(goals)-0.03, label=goals),
+            size=3, position=position_nudge(x=-0.17)) +
+  geom_text(aes(player.name, clutch5+0.03, label=percent(clutch5,1)),
+            size=3, position=position_nudge(x=+0.17)) +
+  scale_y_continuous(
+    name = "Clutch Score (0–1)",
+    limits = c(0,1.1),
+    sec.axis = sec_axis(~ . * max(df$goals), name="Total Goals")
+  ) +
+  scale_fill_manual("", values=c("Goals"="#1f78b4","Clutch Score"="#e31a1c")) +
+  coord_flip() +
+  labs(
+    title    = "Top 15 Goal-Scorers: Goals vs. 5-Factor Clutch Score",
+    subtitle = "Clutch factors: late-game, under pressure, instant, quality, elimination"
+  ) +
+  theme_minimal(base_size=14) +
+  theme(legend.position="top", plot.title=element_text(face="bold"))

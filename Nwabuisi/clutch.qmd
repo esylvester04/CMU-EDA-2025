@@ -1,0 +1,172 @@
+---
+title: "Clutch Score: Measuring High‑Pressure Finishing"
+format: revealjs
+---
+
+## Motivation
+
+- Major tournaments like the Women’s World Cup are short (6–7 matches per team).
+- Top‑scorer rankings often tie multiple players on identical goal tallies.
+- **Goal:** Create a _Clutch Score_ to differentiate players by their performance in high‑impact moments.
+
+---
+
+## Key Shot Contexts
+
+1. **Late‑Game Finishes** (minute ≥ 80 of regulation)  
+2. **Under‑Pressure** (`Shooter was under defensive pressure`)  
+3. **Instant (One‑Touch)** (`Duration of Shot < 0.3s`)  
+4. **High‑Quality Chances** (`Distance To Goal ≤ 12m`)  
+5. **Elimination‑Stage** (extra time periods)
+
+---
+
+## Per‑Context Conversion Rates
+
+For each context $C$ mentioned on the last page:
+
+$$
+\mathrm{rate}_C = \frac{\#\{\text{goals in }C\}}{\#\{\text{shots in }C\}}.
+$$
+
+\# here means "number of"\
+If a player has zero attempts in $C$, define $\mathrm{rate}_C = 0$.
+
+---
+
+## Normalization to [0,1]
+
+Each context rate is rescaled across the Top‑15 goalscorers group:
+
+$$
+\mathrm{norm}_C = \frac{\mathrm{rate}_C - \min(\mathrm{rate}_C)}{\max(\mathrm{rate}_C) - \min(\mathrm{rate}_C)},
+$$
+
+with all equal values mapping to 0.
+
+---
+
+## Composite Clutch Score
+
+Average the five normalized rates:
+
+$$
+\mathrm{Clutch\ Score} = \frac{1}{5} \sum_{C \in \{\mathrm{late, press, instant, quality, elim}\}} \mathrm{norm}_C.
+$$
+
+Ranges from 0 (never clutch) to 1 (always clutch).
+
+---
+
+## Example Calculation
+
+```{r clutch-plot, echo=FALSE}
+# Compute and visualize 5-Factor Clutch Score
+library(tidyverse)
+library(scales)
+
+# Load and flag data
+wwc <- read_csv("https://raw.githubusercontent.com/36-SURE/2025/main/data/wwc_shots.csv") %>%
+  mutate(
+    late_game      = period == 2 & minute >= 80,
+    under_pressure = coalesce(under_pressure, FALSE),
+    instant        = duration < 0.3,
+    high_quality   = DistToGoal <= 12,
+    elim_stage     = period >= 3,
+    is_goal        = shot.outcome.name == "Goal"
+  )
+
+# Top 15 by goals
+top15 <- wwc %>%
+  count(player.name, wt = is_goal) %>%
+  rename(goals = n) %>%
+  arrange(desc(goals)) %>%
+  slice_head(n = 15)
+
+# Compute rates
+clutch5 <- wwc %>%
+  filter(player.name %in% top15$player.name) %>%
+  group_by(player.name) %>%
+  summarise(
+    late_rate    = mean(is_goal[late_game], na.rm=TRUE),
+    press_rate   = mean(is_goal[under_pressure], na.rm=TRUE),
+    inst_rate    = mean(is_goal[instant], na.rm=TRUE),
+    quality_rate = mean(is_goal[high_quality], na.rm=TRUE),
+    elim_rate    = mean(is_goal[elim_stage], na.rm=TRUE),
+    .groups      = "drop"
+  ) %>%
+  replace_na(list(late_rate=0, press_rate=0, inst_rate=0, quality_rate=0, elim_rate=0))
+
+# Safe normalize
+safe_normalize <- function(x) {
+  r <- range(x, na.rm=TRUE)
+  if (diff(r)==0) return(rep(0, length(x)))
+  (x - r[1]) / (r[2] - r[1])
+}
+
+# Normalize & composite
+clutch5 <- clutch5 %>%
+  mutate(
+    late_n    = safe_normalize(late_rate),
+    press_n   = safe_normalize(press_rate),
+    inst_n    = safe_normalize(inst_rate),
+    quality_n = safe_normalize(quality_rate),
+    elim_n    = safe_normalize(elim_rate),
+    clutch5   = rowMeans(across(late_n:elim_n))
+  )
+
+# Merge and plot
+df <- top15 %>%
+  left_join(clutch5 %>% select(player.name, clutch5), by="player.name") %>%
+  mutate(player.name = fct_reorder(player.name, goals))
+
+ggplot(df) +
+  geom_col(aes(player.name, goals / max(goals), fill="Goals"),
+           width=0.35, position=position_nudge(x=-0.17)) +
+  geom_col(aes(player.name, clutch5, fill="Clutch Score"),
+           width=0.35, position=position_nudge(x=+0.17)) +
+  geom_text(aes(player.name, goals/max(goals)-0.03, label=goals),
+            size=3, position=position_nudge(x=-0.17)) +
+  geom_text(aes(player.name, clutch5+0.03, label=percent(clutch5,1)),
+            size=3, position=position_nudge(x=+0.17)) +
+  scale_y_continuous(
+    name = "Clutch Score (0–1)",
+    limits = c(0,1.1),
+    sec.axis = sec_axis(~ . * max(df$goals), name="Total Goals")
+  ) +
+  scale_fill_manual("", values=c("Goals"="#1f78b4","Clutch Score"="#e31a1c")) +
+  coord_flip() +
+  labs(
+    title    = "Top 15 Goal-Scorers: Goals vs. 5-Factor Clutch Score",
+    subtitle = "Clutch factors: late-game, under pressure, instant, quality, elimination"
+  ) +
+  theme_minimal(base_size=14) +
+  theme(legend.position="top", plot.title=element_text(face="bold"))
+```
+
+---
+
+## Interpretation & Application
+
+- **Volume vs. Clutch:** Separates bulk scorers from big‑moment performers.  
+- **Talent Management:** Guides lineup and substitution decisions.  
+- **Training Focus:** Identifies skill gaps (e.g., late‑game composure, pressure handling).
+
+---
+
+## Beyond the Data
+
+- I hoped Clutch Score would reflect a player’s mental fortitude carrying beyond the World Cup.
+- **Real-world challenges:**
+  - Injuries sidelined some stars for entire seasons.
+  - Personal life events (e.g., maternity leave) interrupted careers.
+- These factors show **limitations** in a very statistical clutch metric.
+
+---
+
+## Beyond the Data
+- Future enhancements could incorporate:
+  - Longitudinal fitness and availability data.
+  - Psychological or workload indicators.
+  - Training and recovery metrics.
+
