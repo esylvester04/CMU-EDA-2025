@@ -27,11 +27,13 @@ shots <- shots |>
 
 # Density of shot attempts plot
 library(ggtext)
+shots$goal <- fct_relevel(shots$goal, "Miss", "Goal")
 
 ggplot(shots, aes(x = location_x, y = location_y)) +
   annotate_pitch(dimensions = pitch_statsbomb,
-                 fill = "#F8F8F8", colour = "#AAAAAA") +
-  geom_density_2d_filled(alpha = 0.8, contour_var = "ndensity") +
+                 fill = "#F8F8F8",
+                 colour = "#AAAAAA")+
+  geom_density_2d_filled(alpha = 0.7, contour_var = "ndensity") +
   coord_fixed(xlim = c(80, 125), ylim = c(15, 65)) +
   ggh4x::facet_wrap2(~ goal, strip.position = "bottom") +
   theme_void(base_size = 13) +
@@ -60,7 +62,7 @@ ggplot(shots, aes(x = location_x, y = location_y)) +
     legend.title = element_text(size = 12),
     legend.text = element_text(size = 10)
   ) +
-  scale_fill_viridis_d(option = "turbo", name = "Shot Concentration")
+  scale_fill_viridis_d(option = "magma", name = "Shot Density")
 
 
 
