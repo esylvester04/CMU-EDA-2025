@@ -25,6 +25,58 @@ shots <- shots |>
 
 
 
+# Density of shot attempts plot
+library(ggtext)
+
+ggplot(shots, aes(x = location_x, y = location_y)) +
+  annotate_pitch(dimensions = pitch_statsbomb,
+                 fill = "#F8F8F8", colour = "#AAAAAA") +
+  geom_density_2d_filled(alpha = 0.8, contour_var = "ndensity") +
+  coord_fixed(xlim = c(80, 125), ylim = c(15, 65)) +
+  ggh4x::facet_wrap2(~ goal, strip.position = "bottom") +
+  theme_void(base_size = 13) +
+  labs(
+    title = "Density of Shot Attempts by Outcome",
+    subtitle = "Normalized density estimate of shot locations by outcome (goal vs miss)", 
+    fill = "Shot Concentration"
+  ) +
+  theme_void(base_size = 13) +
+  theme(
+    plot.title = element_text(
+      size = 20,
+      face = "bold",
+      hjust = 0.5,
+      margin = margin(b = 15)
+    ),
+    plot.subtitle = element_text(
+      size = 14,
+      face = "italic",
+      hjust = 0.5,
+      margin = margin(t = 10, b = 15)
+    ),
+    strip.text = element_text(size = 16, face = "bold"),
+    strip.placement = "outside",
+    plot.margin = margin(t = 30, r = 20, b = 40, l = 20),
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 10)
+  ) +
+  scale_fill_viridis_d(option = "turbo", name = "Shot Concentration")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 on_target <- shots |>
   filter(!(shot_outcome_name %in% c("Off T", "Wayward")),
          !is.na(player_name_gk)) |>
@@ -169,29 +221,43 @@ ggplot(shots_in_box, aes(x = location_x,
      scale_fill_viridis_d(option = "cividis", name = "Shot Density")
  
  
+ library(forcats)
+ 
+ shots$goal <- fct_relevel(shots$goal, "Miss", "Goal")
+ 
+ 
  ggplot(shots, aes(x = location_x, y = location_y)) +
    annotate_pitch(dimensions = pitch_statsbomb,
-                  fill = "#F8F8F8", colour = "#CCCCCC") +
+                  fill = "#F8F8F8", colour = "#AAAAAA") +
    geom_density_2d_filled(alpha = 0.8, contour_var = "ndensity") +
    coord_fixed(xlim = c(80, 125), ylim = c(15, 65)) +
    facet_wrap(~ goal) +
    theme_void(base_size = 13) +
    labs(
      title = "Density of Shot Attempts by Outcome",
-     fill = "Shot Concentration"
-   ) +
+     fill = "Shot Concentration",
+     caption = "Normalized density estimate of shot locations\nby outcome (goal vs miss)")+
+
+   #theme(
+    #plot.title = element_text(size = 20, face = "bold", hjust = 0.5)
+   theme_void(base_size = 13) +
    theme(
-     plot.title = element_text(size = 20, face = "bold", hjust = 0.5)
+     plot.title = element_text(size = 20, face = "bold", hjust = 0.5),
+     strip.text = element_text(size = 16, face = "bold"),
+     legend.title = element_text(size = 12),
+     legend.text = element_text(size = 10),
+     plot.caption = element_text(size = 10, hjust = 0.5, margin = margin(t = 10))
    ) +
-   scale_fill_viridis_d(option = "cividis", name = "Shot Concentration")
+   scale_fill_viridis_d(option = "turbo", name = "Shot Concentration")
  
-   
+ 
+ 
+ 
+ 
+ 
+ 
 
-
-
-
-
-w# under pressure GOAL locations by play pattern 
+ # under pressure GOAL locations by play pattern 
 goals_under_pressure <- shots |>
   filter(goal == "Goal", 
          under_pressure == 1)
